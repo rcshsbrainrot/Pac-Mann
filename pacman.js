@@ -93,6 +93,9 @@ function loadImages() {
     pacmanLeftImage.src = "./pacmanLeft.png";
     pacmanRightImage = new Image();
     pacmanRightImage.src = "./pacmanRight.png";
+
+    dotImage = new Image();
+    dotImage.src = "./dot.png";
 }
 
 function loadMap() {
@@ -130,9 +133,10 @@ function loadMap() {
             }
             else if (tileMapChar == 'P') { //pacman
                 pacman = new Block(pacmanRightImage, x, y, tileSize, tileSize);
+                pacman.updateVelocity();
             }
             else if (tileMapChar == ' ') { //empty is food
-                const food = new Block(null, x + 14, y + 14, 4, 4);
+                const food = new Block(dotImage, x + 6, y + 6, 20, 20);
                 foods.add(food);
             }
         }
@@ -159,9 +163,10 @@ function draw() {
         context.drawImage(wall.image, wall.x, wall.y, wall.width, wall.height);
     }
 
-    context.fillStyle = "white";
     for (let food of foods.values()) {
-        context.fillRect(food.x, food.y, food.width, food.height);
+    if (food.image) {
+        context.drawImage(food.image, food.x, food.y, food.width, food.height);
+    }
     }
 
     //score
@@ -176,6 +181,10 @@ function draw() {
 }
 
 function move() {
+    // Try to change direction if possible
+    tryToTurn(pacman);
+
+    // Now move with the current direction
     pacman.x += pacman.velocityX;
     pacman.y += pacman.velocityY;
 
@@ -245,16 +254,16 @@ function movePacman(e) {
     }
 
     if (e.code == "ArrowUp" || e.code == "KeyW") {
-        pacman.updateDirection('U');
+        pacman.nextDirection = 'U';
     }
     else if (e.code == "ArrowDown" || e.code == "KeyS") {
-        pacman.updateDirection('D');
+        pacman.nextDirection = 'D';
     }
     else if (e.code == "ArrowLeft" || e.code == "KeyA") {
-        pacman.updateDirection('L');
+        pacman.nextDirection = 'L';
     }
     else if (e.code == "ArrowRight" || e.code == "KeyD") {
-        pacman.updateDirection('R');
+        pacman.nextDirection = 'R';
     }
 
     //update pacman images
@@ -272,6 +281,52 @@ function movePacman(e) {
     }
     
 }
+
+function tryToTurn(entity) {
+    if (entity.direction === entity.nextDirection) return;
+
+    // Only turn if we're centered on a tile
+    const centerX = entity.x % tileSize === 0;
+    const centerY = entity.y % tileSize === 0;
+
+    if (!(centerX && centerY)) return;
+
+    // Simulate the move to check for walls
+    const test = new Block(null, entity.x, entity.y, tileSize, tileSize);
+    test.direction = entity.nextDirection;
+    test.updateVelocity();
+    test.x += test.velocityX;
+    test.y += test.velocityY;
+
+    let collisionFound = false;
+    for (let wall of walls.values()) {
+        if (collision(test, wall)) {
+            collisionFound = true;
+            break;
+        }
+    }
+
+    if (!collisionFound) {
+        entity.updateDirection(entity.nextDirection);
+
+        // Update Pac-Man image if it's him
+        if (entity === pacman) {
+            if (entity.direction == 'U') {
+                pacman.image = pacmanUpImage;
+            }
+            else if (entity.direction == 'D') {
+                pacman.image = pacmanDownImage;
+            }
+            else if (entity.direction == 'L') {
+                pacman.image = pacmanLeftImage;
+            }
+            else if (entity.direction == 'R') {
+                pacman.image = pacmanRightImage;
+            }
+        }
+    }
+}
+
 
 function collision(a, b) {
     return a.x < b.x + b.width &&   //a's top left corner doesn't reach b's top right corner
@@ -303,6 +358,7 @@ class Block {
         this.startY = y;
 
         this.direction = 'R';
+        this.nextDirection = 'R';
         this.velocityX = 0;
         this.velocityY = 0;
     }
